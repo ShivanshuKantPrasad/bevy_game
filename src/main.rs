@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use rand::prelude::random;
 
 const SNAKE_HEAD_COLOR: Color = Color::rgb(0.7, 0.7, 0.7);
+const SNAKE_SEGMENT_COLOR: Color = Color::rgb(0.3, 0.3, 0.3);
 const FOOD_COLOR: Color = Color::rgb(1.0, 0.0, 1.0);
 
 const ARENA_WIDTH: u32 = 10;
@@ -13,6 +14,12 @@ const ARENA_HEIGHT: u32 = 10;
 struct SnakeHead {
     direction: Direction,
 }
+
+#[derive(Component)]
+struct SnakeSegment;
+
+#[derive(Default)]
+struct SnakeSegments(Vec<Entity>);
 
 #[derive(Component)]
 struct Food;
@@ -89,20 +96,25 @@ fn snake_movement(mut heads: Query<(&mut Position, &SnakeHead)>) {
     }
 }
 
-fn spawn_snake(mut commands: Commands) {
-    commands
-        .spawn_bundle(SpriteBundle {
-            sprite: Sprite {
-                color: SNAKE_HEAD_COLOR,
+fn spawn_snake(mut commands: Commands, mut segments: ResMut<SnakeSegments>) {
+    *segments = SnakeSegments(vec![
+        commands
+            .spawn_bundle(SpriteBundle {
+                sprite: Sprite {
+                    color: SNAKE_HEAD_COLOR,
+                    ..default()
+                },
                 ..default()
-            },
-            ..default()
-        })
-        .insert(SnakeHead {
-            direction: Direction::Up,
-        })
-        .insert(Position { x: 3, y: 3 })
-        .insert(Size::square(0.8));
+            })
+            .insert(SnakeHead {
+                direction: Direction::Up,
+            })
+            .insert(SnakeSegment)
+            .insert(Position { x: 3, y: 3 })
+            .insert(Size::square(0.8))
+            .id(),
+        spawn_segment(commands, Position { x: 3, y: 2 }),
+    ])
 }
 
 fn size_scaling(windows: Res<Windows>, mut q: Query<(&Size, &mut Transform)>) {
@@ -151,6 +163,21 @@ fn snake_movement_input(keyboard_input: Res<Input<KeyCode>>, mut heads: Query<&m
     }
 }
 
+fn spawn_segment(mut commands: Commands, position: Position) -> Entity {
+    commands
+        .spawn_bundle(SpriteBundle {
+            sprite: Sprite {
+                color: SNAKE_SEGMENT_COLOR,
+                ..default()
+            },
+            ..default()
+        })
+        .insert(SnakeSegment)
+        .insert(position)
+        .insert(Size::square(0.65))
+        .id()
+}
+
 fn main() {
     App::new()
         .insert_resource(WindowDescriptor {
@@ -160,6 +187,7 @@ fn main() {
             ..default()
         })
         .insert_resource(ClearColor(Color::rgb(0.04, 0.04, 0.04)))
+        .insert_resource(SnakeSegments::default())
         .add_startup_system(setup_camera)
         .add_startup_system(spawn_snake)
         .add_system(snake_movement_input.before(snake_movement))
