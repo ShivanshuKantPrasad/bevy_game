@@ -79,16 +79,13 @@ fn food_spawner(mut commands: Commands, segment: Query<&Position, With<SnakeSegm
         x: (random::<f32>() * ARENA_WIDTH as f32) as i32,
         y: (random::<f32>() * ARENA_HEIGHT as f32) as i32,
     };
-    println!("Spawning food at {pos:?}");
 
     while segment.iter().any(|x| *x == pos) {
-        println!("{pos:?} exists inside snake body, rerolling");
         pos = Position {
             x: (random::<f32>() * ARENA_WIDTH as f32) as i32,
             y: (random::<f32>() * ARENA_HEIGHT as f32) as i32,
         };
     }
-    println!("Spawning food at {pos:?}");
 
     commands
         .spawn_bundle(SpriteBundle {
@@ -251,8 +248,9 @@ fn spawn_food_when_eaten(
     commands: Commands,
     segment: Query<&Position, With<SnakeSegment>>,
     mut growth_reader: EventReader<GrowthEvent>,
+    mut reader: EventReader<GameOverEvent>,
 ) {
-    if growth_reader.iter().next().is_some() {
+    if growth_reader.iter().next().is_some() || reader.iter().next().is_some() {
         food_spawner(commands, segment);
     }
 }
@@ -306,7 +304,7 @@ fn main() {
                 .with_system(snake_movement)
                 .with_system(snake_eating.after(snake_movement))
                 .with_system(snake_growth.after(snake_eating))
-                .with_system(spawn_food_when_eaten.after(snake_eating))
+                .with_system(spawn_food_when_eaten.after(snake_growth))
                 .with_system(game_over.after(snake_movement)),
         )
         .add_system_set_to_stage(
