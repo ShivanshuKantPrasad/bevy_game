@@ -74,7 +74,22 @@ fn setup_camera(mut commands: Commands) {
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
 }
 
-fn food_spawner(mut commands: Commands) {
+fn food_spawner(mut commands: Commands, segment: Query<&Position, With<SnakeSegment>>) {
+    let mut pos = Position {
+        x: (random::<f32>() * ARENA_WIDTH as f32) as i32,
+        y: (random::<f32>() * ARENA_HEIGHT as f32) as i32,
+    };
+    println!("Spawning food at {pos:?}");
+
+    while segment.iter().any(|x| *x == pos) {
+        println!("{pos:?} exists inside snake body, rerolling");
+        pos = Position {
+            x: (random::<f32>() * ARENA_WIDTH as f32) as i32,
+            y: (random::<f32>() * ARENA_HEIGHT as f32) as i32,
+        };
+    }
+    println!("Spawning food at {pos:?}");
+
     commands
         .spawn_bundle(SpriteBundle {
             sprite: Sprite {
@@ -232,6 +247,16 @@ fn snake_eating(
     }
 }
 
+fn spawn_food_when_eaten(
+    commands: Commands,
+    segment: Query<&Position, With<SnakeSegment>>,
+    mut growth_reader: EventReader<GrowthEvent>,
+) {
+    if growth_reader.iter().next().is_some() {
+        food_spawner(commands, segment);
+    }
+}
+
 fn snake_growth(
     commands: Commands,
     last_tail_position: Res<LastTailPosition>,
@@ -273,6 +298,7 @@ fn main() {
         .add_event::<GameOverEvent>()
         .add_startup_system(setup_camera)
         .add_startup_system(spawn_snake)
+        .add_startup_system(food_spawner)
         .add_system(snake_movement_input.before(snake_movement))
         .add_system_set(
             SystemSet::new()
@@ -280,12 +306,8 @@ fn main() {
                 .with_system(snake_movement)
                 .with_system(snake_eating.after(snake_movement))
                 .with_system(snake_growth.after(snake_eating))
+                .with_system(spawn_food_when_eaten.after(snake_eating))
                 .with_system(game_over.after(snake_movement)),
-        )
-        .add_system_set(
-            SystemSet::new()
-                .with_run_criteria(FixedTimestep::step(1.0))
-                .with_system(food_spawner),
         )
         .add_system_set_to_stage(
             CoreStage::PostUpdate,
