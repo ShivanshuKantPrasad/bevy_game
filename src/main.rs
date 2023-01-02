@@ -1,6 +1,6 @@
-use bevy::core::FixedTimestep;
-use bevy::input::system::exit_on_esc_system;
 use bevy::prelude::*;
+use bevy::time::FixedTimestep;
+use bevy::window::close_on_esc;
 use rand::prelude::random;
 
 const SNAKE_HEAD_COLOR: Color = Color::rgb(0.7, 0.7, 0.7);
@@ -21,10 +21,10 @@ struct SnakeHead {
 #[derive(Component)]
 struct SnakeSegment;
 
-#[derive(Default, Deref, DerefMut)]
+#[derive(Default, Deref, DerefMut, Resource)]
 struct SnakeSegments(Vec<Entity>);
 
-#[derive(Default)]
+#[derive(Default, Resource)]
 struct LastTailPosition(Option<Position>);
 
 #[derive(Component)]
@@ -71,7 +71,7 @@ impl Size {
 }
 
 fn setup_camera(mut commands: Commands) {
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn(Camera2dBundle::default());
 }
 
 fn food_spawner(mut commands: Commands, segment: Query<&Position, With<SnakeSegment>>) {
@@ -88,7 +88,7 @@ fn food_spawner(mut commands: Commands, segment: Query<&Position, With<SnakeSegm
     }
 
     commands
-        .spawn_bundle(SpriteBundle {
+        .spawn(SpriteBundle {
             sprite: Sprite {
                 color: FOOD_COLOR,
                 ..default()
@@ -149,7 +149,7 @@ fn snake_movement(
 fn spawn_snake(mut commands: Commands, mut segments: ResMut<SnakeSegments>) {
     *segments = SnakeSegments(vec![
         commands
-            .spawn_bundle(SpriteBundle {
+            .spawn(SpriteBundle {
                 sprite: Sprite {
                     color: SNAKE_HEAD_COLOR,
                     ..default()
@@ -171,8 +171,8 @@ fn size_scaling(windows: Res<Windows>, mut q: Query<(&Size, &mut Transform)>) {
     let window = windows.get_primary().unwrap();
     for (sprite_size, mut transform) in q.iter_mut() {
         transform.scale = Vec3::new(
-            sprite_size.width / ARENA_WIDTH as f32 * window.width() as f32,
-            sprite_size.height / ARENA_HEIGHT as f32 * window.height() as f32,
+            sprite_size.width / ARENA_WIDTH as f32 * window.width(),
+            sprite_size.height / ARENA_HEIGHT as f32 * window.height(),
             1.0,
         );
     }
@@ -187,8 +187,8 @@ fn position_translation(windows: Res<Windows>, mut q: Query<(&Position, &mut Tra
     let window = windows.get_primary().unwrap();
     for (pos, mut transform) in q.iter_mut() {
         transform.translation = Vec3::new(
-            convert(pos.x as f32, window.width() as f32, ARENA_WIDTH as f32),
-            convert(pos.y as f32, window.height() as f32, ARENA_HEIGHT as f32),
+            convert(pos.x as f32, window.width(), ARENA_WIDTH as f32),
+            convert(pos.y as f32, window.height(), ARENA_HEIGHT as f32),
             0.0,
         );
     }
@@ -215,7 +215,7 @@ fn snake_movement_input(keyboard_input: Res<Input<KeyCode>>, mut heads: Query<&m
 
 fn spawn_segment(mut commands: Commands, position: Position) -> Entity {
     commands
-        .spawn_bundle(SpriteBundle {
+        .spawn(SpriteBundle {
             sprite: Sprite {
                 color: SNAKE_SEGMENT_COLOR,
                 ..default()
@@ -283,12 +283,15 @@ fn game_over(
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
-            title: "Snake!".to_string(),
-            width: 500.0,
-            height: 500.0,
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                title: "Snake!".to_string(),
+                width: 500.0,
+                height: 500.0,
+                ..default()
+            },
             ..default()
-        })
+        }))
         .insert_resource(ClearColor(Color::rgb(0.04, 0.04, 0.04)))
         .insert_resource(SnakeSegments::default())
         .insert_resource(LastTailPosition::default())
@@ -313,7 +316,6 @@ fn main() {
                 .with_system(position_translation)
                 .with_system(size_scaling),
         )
-        .add_plugins(DefaultPlugins)
-        .add_system(exit_on_esc_system)
+        .add_system(close_on_esc)
         .run();
 }
